@@ -74,12 +74,18 @@ function setupModeButtons() {
 
 initActivityModal({
   onClose() {
-    // Re-lock pointer after closing modal
-    setTimeout(() => {
-      if (document.pointerLockElement !== canvas) {
-        canvas.requestPointerLock()
-      }
-    }, 100)
+      // Re-lock pointer after closing modal on desktop only; on mobile re-init controls
+      setTimeout(() => {
+        try {
+          if (!isMobileDevice()) {
+            if (document.pointerLockElement !== canvas) {
+              try { canvas.requestPointerLock() } catch (e) {}
+            }
+          } else {
+            try { initMobileControls(canvas) } catch (e) {}
+          }
+        } catch (err) {}
+      }, 100)
   },
 })
 
