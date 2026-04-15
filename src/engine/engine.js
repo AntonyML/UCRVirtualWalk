@@ -52,9 +52,10 @@ export function startYourEngines({
   let currentEventsData = eventsData || null
   let currentLobbyDays = Array.isArray(lobbyDays) ? lobbyDays : []
 
-  const mobileEnabled = typeof window !== 'undefined' && isMobileDevice()
+  let mobileEnabled = typeof window !== 'undefined' && isMobileDevice()
 
   let deferredTextureLoadToken = 0
+  let _lastTapTime = 0
 
   function loadTextureAsync(url) {
     const loader = new THREE.TextureLoader()
@@ -108,14 +109,23 @@ export function startYourEngines({
     }
   }
 
-  // Initialize mobile controls if applicable
-  if (mobileEnabled) {
+  function evaluateMobileEnabled() {
     try {
-      initMobileControls(canvas)
-    } catch (e) {
-      // ignore
-    }
+      const was = mobileEnabled
+      const now = typeof window !== 'undefined' && isMobileDevice()
+      mobileEnabled = Boolean(now)
+      if (mobileEnabled && !was) {
+        try { initMobileControls(canvas) } catch (e) {}
+      } else if (!mobileEnabled && was) {
+        try { destroyMobileControls() } catch (e) {}
+      }
+    } catch (e) {}
   }
+
+  // run initial evaluation and watch for viewport changes
+  try { evaluateMobileEnabled() } catch (e) {}
+  window.addEventListener('resize', evaluateMobileEnabled, { passive: true })
+  window.addEventListener('orientationchange', evaluateMobileEnabled, { passive: true })
 
   function yawForFacingWall(wall) {
     if (wall === 'south') return 0
@@ -257,6 +267,7 @@ export function startYourEngines({
   window.addEventListener('keyup', onKeyUp)
 
   const mouseSensitivity = 0.0022
+  const mobileMouseSensitivity = 0.0042
 
   function isPointerLocked() {
     return document.pointerLockElement === canvas
@@ -356,21 +367,30 @@ export function startYourEngines({
 
   window.addEventListener('mousedown', onMouseDown)
 
-  // Mobile touch tap to trigger centered interaction (ignore if tapping on controls)
+  // Mobile tap to trigger centered interaction (ignore if tapping on controls)
   function onTouchTap(e) {
     if (!mobileEnabled) return
     if (isModalOpen()) return
     try {
-      const changed = e.changedTouches && e.changedTouches[0]
-      if (!changed) return
-      const tx = changed.clientX
-      const ty = changed.clientY
+      let tx, ty
+      if (e.changedTouches && e.changedTouches[0]) {
+        tx = e.changedTouches[0].clientX
+        ty = e.changedTouches[0].clientY
+      } else if (typeof e.clientX === 'number' && typeof e.clientY === 'number') {
+        tx = e.clientX
+        ty = e.clientY
+      } else return
+
+      const now = Date.now()
+      if (now - _lastTapTime < 60) return
+      _lastTapTime = now
+
       const el = document.elementFromPoint(tx, ty)
       if (el && (el.closest && (el.closest('#mobile-joystick-base') || el.closest('#mobile-touch-area')))) {
         return
       }
     } catch (err) {
-      // ignore
+      return
     }
 
     raycaster.setFromCamera(rayNdc, camera)
@@ -432,7 +452,8 @@ export function startYourEngines({
     }
   }
 
-  window.addEventListener('touchend', onTouchTap)
+  window.addEventListener('touchend', onTouchTap, { passive: true })
+  window.addEventListener('pointerup', onTouchTap, { passive: true })
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v))
@@ -453,8 +474,8 @@ export function startYourEngines({
       const lx = typeof mobileInput.lookDeltaX === 'number' ? mobileInput.lookDeltaX : 0
       const ly = typeof mobileInput.lookDeltaY === 'number' ? mobileInput.lookDeltaY : 0
       if (lx !== 0 || ly !== 0) {
-        yaw -= lx * mouseSensitivity
-        pitch -= ly * mouseSensitivity
+        yaw -= lx * mobileMouseSensitivity
+        pitch -= ly * mobileMouseSensitivity
         const limit = Math.PI / 2 - 0.01
         pitch = Math.max(-limit, Math.min(limit, pitch))
         camera.rotation.y = yaw
@@ -636,7 +657,10 @@ export function startYourEngines({
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mousedown', onMouseDown)
-      window.removeEventListener('touchend', onTouchTap)
+      try { window.removeEventListener && window.removeEventListener('touchend', onTouchTap) } catch (e) {}
+      try { window.removeEventListener && window.removeEventListener('pointerup', onTouchTap) } catch (e) {}
+      try { window.removeEventListener && window.removeEventListener('resize', evaluateMobileEnabled) } catch (e) {}
+      try { window.removeEventListener && window.removeEventListener('orientationchange', evaluateMobileEnabled) } catch (e) {}
       document.removeEventListener('pointerlockchange', handlePointerLockChange)
       if (currentRoom) {
         scene.remove(currentRoom.group)
@@ -644,9 +668,7 @@ export function startYourEngines({
         currentRoom = null
       }
       disposeMany(staticDisposables)
-      if (mobileEnabled) {
-        try { destroyMobileControls() } catch (e) {}
-      }
+      try { destroyMobileControls() } catch (e) {}
       renderer.dispose()
     },
   }
