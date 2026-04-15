@@ -175,66 +175,6 @@ function getActivitiesForDay(eventsData, dayName) {
   return Array.isArray(day?.activities) ? day.activities : []
 }
 
-function makeActivityTexture({ title, size = 512 }) {
-  const canv = document.createElement('canvas')
-  canv.width = size
-  canv.height = size
-  const c = canv.getContext('2d')
-  if (c) {
-    c.clearRect(0, 0, size, size)
-    // Background
-    c.fillStyle = 'rgba(15, 20, 40, 0.92)'
-    c.fillRect(0, 0, size, size)
-    // Border
-    c.strokeStyle = 'rgba(100,160,255,0.5)'
-    c.lineWidth = 12
-    c.strokeRect(14, 14, size - 28, size - 28)
-    // Title
-    const pad = 48
-    const maxW = size - pad * 2
-    const fontSize = 62
-    c.font = `800 ${fontSize}px system-ui, -apple-system, Segoe UI, Roboto, Arial`
-    c.fillStyle = 'rgba(255,255,255,0.97)'
-    c.textAlign = 'center'
-    c.textBaseline = 'top'
-
-    // Word wrap title
-    const words = String(title || '').trim().split(/\s+/)
-    const lines = []
-    let current = ''
-    for (const word of words) {
-      const test = current ? `${current} ${word}` : word
-      if (c.measureText(test).width <= maxW) {
-        current = test
-      } else {
-        if (current) lines.push(current)
-        current = word
-      }
-    }
-    if (current) lines.push(current)
-
-    const lineH = fontSize * 1.25
-    const totalH = lines.length * lineH
-    let y = size / 2 - totalH / 2
-
-    for (const line of lines) {
-      c.fillText(line, size / 2, y)
-      y += lineH
-    }
-
-    // "Click para ver" hint
-    c.font = '600 36px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-    c.fillStyle = 'rgba(100,180,255,0.85)'
-    c.textBaseline = 'bottom'
-    c.fillText('👆 Click para ver', size / 2, size - 30)
-  }
-
-  const tex = new THREE.CanvasTexture(canv)
-  tex.colorSpace = THREE.SRGBColorSpace
-  configureGalleryTexture(tex)
-  tex.needsUpdate = true
-  return tex
-}
 
 function buildActivityPanels({ ctx, activities, dayName, disposables, group, pickableMeshes, obstacles, halfW, halfL, height, wallThickness, width, length }) {
   const panelW = 1.8
