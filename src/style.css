@@ -148,6 +148,50 @@ canvas:focus {
 	vertical-align: middle;
 }
 
+/* Mobile controls */
+#mobile-joystick-base {
+	position: fixed;
+	left: 20px;
+	bottom: 20px;
+	width: 120px;
+	height: 120px;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.04);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	opacity: 0.9;
+	touch-action: none;
+	user-select: none;
+	-webkit-user-drag: none;
+	z-index: 1200;
+}
+
+#mobile-joystick-thumb {
+	width: 60px;
+	height: 60px;
+	border-radius: 50%;
+	background: rgba(255,255,255,0.10);
+	box-shadow: 0 6px 18px rgba(0,0,0,0.6);
+	transition: transform 0.05s linear;
+	touch-action: none;
+}
+
+#mobile-touch-area {
+	position: fixed;
+	right: 0;
+	top: 0;
+	bottom: 0;
+	width: 50%;
+	z-index: 1199;
+	touch-action: none;
+}
+
+@media (min-width: 900px) {
+	/* hide mobile controls on large screens */
+	#mobile-joystick-base, #mobile-touch-area { display: none !important; }
+}
+
 /* ===================== EVENT INFO BANNER ===================== */
 #overlay-event-banner {
 	position: fixed;

@@ -3,6 +3,7 @@ import { buildRoom } from '../game/room.js'
 import { disposeSharedRoomMaterialTextures } from '../game/room/textures.js'
 import { roundTo, setBodyClickableCursor } from '../misc/helper.js'
 import { isModalOpen, closeActivityModal } from '../ui/uiOverlay.js'
+import { initMobileControls, mobileInput, isMobileDevice, destroyMobileControls } from '../ui/mobileControls.js'
 
 export function startYourEngines({
   canvas,
@@ -50,6 +51,8 @@ export function startYourEngines({
   let currentDayName = null
   let currentEventsData = eventsData || null
   let currentLobbyDays = Array.isArray(lobbyDays) ? lobbyDays : []
+
+  const mobileEnabled = typeof window !== 'undefined' && isMobileDevice()
 
   let deferredTextureLoadToken = 0
 
@@ -102,6 +105,15 @@ export function startYourEngines({
   function disposeMany(items) {
     for (const d of items) {
       if (d && typeof d.dispose === 'function') d.dispose()
+    }
+  }
+
+  // Initialize mobile controls if applicable
+  if (mobileEnabled) {
+    try {
+      initMobileControls(canvas)
+    } catch (e) {
+      // ignore
     }
   }
 
@@ -211,7 +223,7 @@ export function startYourEngines({
   const rayNdc = new THREE.Vector2(0, 0)
 
   function computeIsAimingAtClickable() {
-    if (!isPointerLocked()) return false
+    if (!isPointerLocked() && !mobileEnabled) return false
     if (isModalOpen()) return false
     const candidates = []
     if (doorHitMeshes.length) candidates.push(...doorHitMeshes)
@@ -344,12 +356,90 @@ export function startYourEngines({
 
   window.addEventListener('mousedown', onMouseDown)
 
+  // Mobile touch tap to trigger centered interaction (ignore if tapping on controls)
+  function onTouchTap(e) {
+    if (!mobileEnabled) return
+    if (isModalOpen()) return
+    try {
+      const changed = e.changedTouches && e.changedTouches[0]
+      if (!changed) return
+      const tx = changed.clientX
+      const ty = changed.clientY
+      const el = document.elementFromPoint(tx, ty)
+      if (el && (el.closest && (el.closest('#mobile-joystick-base') || el.closest('#mobile-touch-area')))) {
+        return
+      }
+    } catch (err) {
+      // ignore
+    }
+
+    raycaster.setFromCamera(rayNdc, camera)
+    const candidates = []
+    if (doorHitMeshes.length) candidates.push(...doorHitMeshes)
+    if (pickableMeshes.length) candidates.push(...pickableMeshes)
+    if (candidates.length === 0) return
+    const hits = raycaster.intersectObjects(candidates, true)
+    if (hits.length === 0) return
+
+    const hitObj = hits[0]?.object
+    const hitPoint = hits[0]?.point
+
+    const interactMaxDistance = 3.5
+    if (hitPoint && typeof hitPoint.distanceTo === 'function') {
+      const d = hitPoint.distanceTo(camera.position)
+      if (d > interactMaxDistance) return
+    }
+
+    // Check for onClick handler first (activity panels)
+    {
+      let cur = hitObj
+      while (cur) {
+        const onClick = cur?.userData?.onClick
+        if (typeof onClick === 'function') {
+          try {
+            onClick({ object: cur, hitObject: hitObj, hitPoint, camera })
+          } catch (err) {}
+          return
+        }
+
+        const action = cur?.userData?.action
+        if (action === 'go-lobby') {
+          if (typeof onDoorTrigger === 'function') {
+            onDoorTrigger({ target: 'lobby' })
+          }
+          return
+        }
+
+        cur = cur.parent
+      }
+    }
+
+    // Check for door triggers
+    function findDoorIdLocal(obj) {
+      let cur = obj
+      while (cur) {
+        if (cur.userData && typeof cur.userData.doorId === 'string') return cur.userData.doorId
+        cur = cur.parent
+      }
+      return null
+    }
+
+    const doorId = findDoorIdLocal(hits[0].object)
+    if (!doorId) return
+    const door = doorById.get(doorId) ?? { id: doorId }
+    if (typeof onDoorTrigger === 'function') {
+      onDoorTrigger(door)
+    }
+  }
+
+  window.addEventListener('touchend', onTouchTap)
+
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v))
   }
 
   function updatePlayer(dt) {
-    if (!isPointerLocked()) {
+    if (!isPointerLocked() && !mobileEnabled) {
       jumpRequested = false
       return
     }
@@ -358,8 +448,31 @@ export function startYourEngines({
       return
     }
 
-    const inputX = (keysDown.has('KeyD') || keysDown.has('ArrowRight') ? 1 : 0) - (keysDown.has('KeyA') || keysDown.has('ArrowLeft') ? 1 : 0)
-    const inputZ = (keysDown.has('KeyW') || keysDown.has('ArrowUp') ? 1 : 0) - (keysDown.has('KeyS') || keysDown.has('ArrowDown') ? 1 : 0)
+    // Apply mobile look deltas (if any)
+    if (mobileEnabled && mobileInput) {
+      const lx = typeof mobileInput.lookDeltaX === 'number' ? mobileInput.lookDeltaX : 0
+      const ly = typeof mobileInput.lookDeltaY === 'number' ? mobileInput.lookDeltaY : 0
+      if (lx !== 0 || ly !== 0) {
+        yaw -= lx * mouseSensitivity
+        pitch -= ly * mouseSensitivity
+        const limit = Math.PI / 2 - 0.01
+        pitch = Math.max(-limit, Math.min(limit, pitch))
+        camera.rotation.y = yaw
+        camera.rotation.x = pitch
+        mobileInput.lookDeltaX = 0
+        mobileInput.lookDeltaY = 0
+      }
+    }
+
+    let inputX = 0
+    let inputZ = 0
+    if (mobileEnabled && mobileInput) {
+      inputX = typeof mobileInput.moveX === 'number' ? mobileInput.moveX : 0
+      inputZ = typeof mobileInput.moveZ === 'number' ? mobileInput.moveZ : 0
+    } else {
+      inputX = (keysDown.has('KeyD') || keysDown.has('ArrowRight') ? 1 : 0) - (keysDown.has('KeyA') || keysDown.has('ArrowLeft') ? 1 : 0)
+      inputZ = (keysDown.has('KeyW') || keysDown.has('ArrowUp') ? 1 : 0) - (keysDown.has('KeyS') || keysDown.has('ArrowDown') ? 1 : 0)
+    }
 
     let moveX = 0
     let moveZ = 0
@@ -523,6 +636,7 @@ export function startYourEngines({
       window.removeEventListener('keyup', onKeyUp)
       window.removeEventListener('mousemove', onMouseMove)
       window.removeEventListener('mousedown', onMouseDown)
+      window.removeEventListener('touchend', onTouchTap)
       document.removeEventListener('pointerlockchange', handlePointerLockChange)
       if (currentRoom) {
         scene.remove(currentRoom.group)
@@ -530,6 +644,9 @@ export function startYourEngines({
         currentRoom = null
       }
       disposeMany(staticDisposables)
+      if (mobileEnabled) {
+        try { destroyMobileControls() } catch (e) {}
+      }
       renderer.dispose()
     },
   }

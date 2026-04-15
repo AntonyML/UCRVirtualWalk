@@ -2,6 +2,7 @@ import './style.css'
 import { startYourEngines } from './engine/engine.js'
 import { loadEventsData, getDayNames } from './data/dataLoader.js'
 import { initActivityModal } from './ui/uiOverlay.js'
+import { isMobileDevice } from './ui/mobileControls.js'
 
 const app = document.querySelector('#app')
 app.innerHTML = `
@@ -33,6 +34,11 @@ const overlayEl = document.querySelector('#overlay-inner')
 const crosshairEl = document.querySelector('#crosshair')
 
 function requestPlay() {
+  if (isMobileDevice()) {
+    overlayEl.hidden = true
+    document.body.classList.add('locked')
+    return
+  }
   canvas.requestPointerLock()
 }
 
