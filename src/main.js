@@ -2,7 +2,7 @@ import './style.css'
 import { startYourEngines } from './engine/engine.js'
 import { loadEventsData, getDayNames } from './data/dataLoader.js'
 import { initActivityModal } from './ui/uiOverlay.js'
-import { isMobileDevice } from './ui/mobileControls.js'
+import { isMobileDevice, setMobileMode, initMobileControls, destroyMobileControls } from './ui/mobileControls.js'
 
 const app = document.querySelector('#app')
 app.innerHTML = `
@@ -17,9 +17,13 @@ app.innerHTML = `
       </div>
     </div>
     <div id="overlay-inner">
-      <div id="overlay-title">Click para entrar</div>
-      <div id="overlay-sub">WASD/Flechas para moverse · Ratón para mirar · ESCAPE para salir</div>
-    </div>
+        <div id="overlay-title">Selecciona modo</div>
+        <div id="overlay-sub">Elija cómo desea entrar:</div>
+        <div id="overlay-buttons">
+          <button id="enter-mobile" class="overlay-btn">Entrar como móvil</button>
+          <button id="enter-pc" class="overlay-btn">Entrar como PC</button>
+        </div>
+      </div>
     <div id="overlay-footer">
       <p>UCR Recinto de Guápiles</p>
     </div>
@@ -39,13 +43,34 @@ function requestPlay() {
     document.body.classList.add('locked')
     return
   }
-  canvas.requestPointerLock()
+  try { canvas.requestPointerLock() } catch (e) {}
 }
 
-overlayEl.addEventListener('click', requestPlay)
-overlayEl.addEventListener('keydown', (e) => {
-  if (e.code === 'Enter' || e.code === 'Space') requestPlay()
-})
+// Button handlers for mode selection
+function setupModeButtons() {
+  const mobileBtn = document.querySelector('#enter-mobile')
+  const pcBtn = document.querySelector('#enter-pc')
+  if (mobileBtn) {
+    mobileBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      setMobileMode(true)
+      // ensure controls created immediately
+      try { initMobileControls(canvas) } catch (err) {}
+      // trigger engine to re-evaluate mobile mode
+      try { window.dispatchEvent(new Event('resize')) } catch (err) {}
+      requestPlay()
+    })
+  }
+  if (pcBtn) {
+    pcBtn.addEventListener('click', (e) => {
+      e.preventDefault()
+      setMobileMode(false)
+      try { destroyMobileControls() } catch (err) {}
+      try { window.dispatchEvent(new Event('resize')) } catch (err) {}
+      requestPlay()
+    })
+  }
+}
 
 initActivityModal({
   onClose() {
@@ -117,3 +142,6 @@ async function init() {
 }
 
 init()
+
+// Setup selection buttons after DOM ready
+setupModeButtons()

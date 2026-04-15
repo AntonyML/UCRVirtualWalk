@@ -7,6 +7,7 @@
 export function isMobileDevice() {
   try {
     if (typeof window === 'undefined') return false
+    if (typeof _forceMobile === 'boolean') return _forceMobile
     const hasTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || (navigator.msMaxTouchPoints && navigator.msMaxTouchPoints > 0)
     const coarsePointer = typeof window.matchMedia === 'function' && window.matchMedia('(pointer: coarse)').matches
     const smallScreen = typeof window.innerWidth === 'number' && window.innerWidth <= 900
@@ -23,6 +24,16 @@ export const mobileInput = {
   lookDeltaY: 0,
 }
 
+export function setMobileMode(force) {
+  if (force === true) _forceMobile = true
+  else if (force === false) _forceMobile = false
+  else _forceMobile = null
+}
+
+export function clearMobileMode() {
+  _forceMobile = null
+}
+
 let _base = null
 let _thumb = null
 let _touchArea = null
@@ -37,6 +48,7 @@ let _joystickTargetZ = 0
 let _pendingLookX = 0
 let _pendingLookY = 0
 let _lastPointerType = null
+let _forceMobile = null
 
 const DEADZONE = 0.15
 const SMOOTHING = 0.18
