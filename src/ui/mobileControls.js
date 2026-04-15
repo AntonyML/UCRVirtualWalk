@@ -49,10 +49,13 @@ let _pendingLookX = 0
 let _pendingLookY = 0
 let _lastPointerType = null
 let _forceMobile = null
+let _lastJoystickMoveTime = 0
+let _lastLookMoveTime = 0
 
 const DEADZONE = 0.15
 const SMOOTHING = 0.18
 const THUMB_MAX = 40
+const STICKY_TIMEOUT = 1500 // ms without moves => force release
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)) }
 function lerp(a, b, t) { return a + (b - a) * t }
@@ -89,6 +92,7 @@ function _onJoystickStartPointer(clientX, clientY, id, pointerType) {
   _joystickId = id
   updateJoystickCenter()
   _lastPointerType = pointerType || _lastPointerType
+  _lastJoystickMoveTime = Date.now()
   // initial move
   const dx = clientX - _joystickCenter.x
   const dy = clientY - _joystickCenter.y
@@ -100,6 +104,7 @@ function _onJoystickStartPointer(clientX, clientY, id, pointerType) {
 
 function _onJoystickMovePointer(clientX, clientY, id) {
   if (_joystickId === null || id !== _joystickId) return
+  _lastJoystickMoveTime = Date.now()
   const dx = clientX - _joystickCenter.x
   const dy = clientY - _joystickCenter.y
   const { nx, ny } = _computeNormalized(dx, dy)
@@ -113,7 +118,20 @@ function _onJoystickEndPointer(id) {
   _joystickId = null
   _joystickTargetX = 0
   _joystickTargetZ = 0
-  if (_thumb) _thumb.style.transform = 'translate(0px, 0px)'
+  if (_thumb) {
+    try {
+      // snap immediately to center to avoid visual drift
+      _thumb.style.transition = 'none'
+      _thumb.style.transform = 'translate(0px, 0px)'
+      // restore transition on next frame
+      window.requestAnimationFrame(() => {
+        if (_thumb) _thumb.style.transition = ''
+      })
+    } catch (err) {}
+  }
+  // ensure input resets immediately (avoid lingering movement due to smoothing)
+  mobileInput.moveX = 0
+  mobileInput.moveZ = 0
 }
 
 function _onLookStartPointer(clientX, clientY, id, pointerType) {
@@ -125,10 +143,12 @@ function _onLookStartPointer(clientX, clientY, id, pointerType) {
   _pendingLookY = 0
   _touchArea._lastX = clientX
   _touchArea._lastY = clientY
+  _lastLookMoveTime = Date.now()
 }
 
 function _onLookMovePointer(clientX, clientY, id) {
   if (_lookId === null || id !== _lookId) return
+  _lastLookMoveTime = Date.now()
   const prevX = _touchArea._lastX || clientX
   const prevY = _touchArea._lastY || clientY
   const dx = clientX - prevX
@@ -150,13 +170,19 @@ function _onPointerDown(e) {
   const el = e.target
   if (el && (el.closest && (el.closest('#mobile-joystick-base')))) {
     _onJoystickStartPointer(e.clientX, e.clientY, e.pointerId, e.pointerType)
-    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId) } catch (err) {}
+    try {
+      if (e.target && typeof e.target.setPointerCapture === 'function') e.target.setPointerCapture(e.pointerId)
+      else if (_base && typeof _base.setPointerCapture === 'function') _base.setPointerCapture(e.pointerId)
+    } catch (err) {}
     e.preventDefault()
     return
   }
   if (el && (el.closest && (el.closest('#mobile-touch-area')))) {
     _onLookStartPointer(e.clientX, e.clientY, e.pointerId, e.pointerType)
-    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId) } catch (err) {}
+    try {
+      if (e.target && typeof e.target.setPointerCapture === 'function') e.target.setPointerCapture(e.pointerId)
+      else if (_touchArea && typeof _touchArea.setPointerCapture === 'function') _touchArea.setPointerCapture(e.pointerId)
+    } catch (err) {}
     e.preventDefault()
     return
   }
@@ -238,6 +264,15 @@ function _startLoop() {
       _pendingLookY = 0
     }
 
+    // safety: if pointer doesn't release for long, force end (prevents stuck states)
+    const now = Date.now()
+    if (_joystickId !== null && _lastJoystickMoveTime > 0 && now - _lastJoystickMoveTime > STICKY_TIMEOUT) {
+      try { _onJoystickEndPointer(_joystickId) } catch (err) {}
+    }
+    if (_lookId !== null && _lastLookMoveTime > 0 && now - _lastLookMoveTime > STICKY_TIMEOUT) {
+      try { _onLookEndPointer(_lookId) } catch (err) {}
+    }
+
     _rafId = window.requestAnimationFrame(loop)
   }
   _rafId = window.requestAnimationFrame(loop)
@@ -281,6 +316,22 @@ export function initMobileControls(canvas) {
   updateJoystickCenter()
   window.addEventListener('resize', updateJoystickCenter, { passive: true })
 
+  // handle page visibility/blur to ensure clean release
+  function _onVisibilityChange() {
+    if (document.hidden) {
+      try { if (_joystickId !== null) _onJoystickEndPointer(_joystickId) } catch (err) {}
+      try { if (_lookId !== null) _onLookEndPointer(_lookId) } catch (err) {}
+    }
+  }
+
+  function _onWindowBlur() {
+    try { if (_joystickId !== null) _onJoystickEndPointer(_joystickId) } catch (err) {}
+    try { if (_lookId !== null) _onLookEndPointer(_lookId) } catch (err) {}
+  }
+
+  document.addEventListener('visibilitychange', _onVisibilityChange, { passive: true })
+  window.addEventListener('blur', _onWindowBlur)
+
   if (window.PointerEvent) {
     window.addEventListener('pointerdown', _onPointerDown, { passive: false })
     window.addEventListener('pointermove', _onPointerMove, { passive: false })
@@ -315,6 +366,9 @@ export function destroyMobileControls() {
       window.removeEventListener && window.removeEventListener('touchend', _onTouchEnd)
       window.removeEventListener && window.removeEventListener('touchcancel', _onTouchEnd)
     }
+    // remove visibility / blur handlers
+    document.removeEventListener && document.removeEventListener('visibilitychange', _onVisibilityChange)
+    window.removeEventListener && window.removeEventListener('blur', _onWindowBlur)
   } catch (e) {}
 
   _stopLoop()
@@ -333,4 +387,48 @@ export function destroyMobileControls() {
   mobileInput.moveZ = 0
   mobileInput.lookDeltaX = 0
   mobileInput.lookDeltaY = 0
+}
+
+// Reset mobile control internal state without tearing down DOM
+export function resetMobileState() {
+  try {
+    const jid = _joystickId
+    const lid = _lookId
+
+    // snap thumb to center visually
+    if (_thumb) {
+      try {
+        _thumb.style.transition = 'none'
+        _thumb.style.transform = 'translate(0px, 0px)'
+        window.requestAnimationFrame(() => {
+          if (_thumb) _thumb.style.transition = ''
+        })
+      } catch (e) {}
+    }
+
+    // clear targets and pending deltas
+    _joystickTargetX = 0
+    _joystickTargetZ = 0
+    _pendingLookX = 0
+    _pendingLookY = 0
+    _lastJoystickMoveTime = 0
+    _lastLookMoveTime = 0
+
+    // clear public-facing inputs
+    mobileInput.moveX = 0
+    mobileInput.moveZ = 0
+    mobileInput.lookDeltaX = 0
+    mobileInput.lookDeltaY = 0
+
+    _joystickId = null
+    _lookId = null
+
+    // try to release pointer capture (best-effort)
+    try {
+      if (jid !== null && _base && typeof _base.releasePointerCapture === 'function') _base.releasePointerCapture(jid)
+    } catch (e) {}
+    try {
+      if (lid !== null && _touchArea && typeof _touchArea.releasePointerCapture === 'function') _touchArea.releasePointerCapture(lid)
+    } catch (e) {}
+  } catch (e) {}
 }

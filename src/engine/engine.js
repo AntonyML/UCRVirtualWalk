@@ -3,7 +3,7 @@ import { buildRoom } from '../game/room.js'
 import { disposeSharedRoomMaterialTextures } from '../game/room/textures.js'
 import { roundTo, setBodyClickableCursor } from '../misc/helper.js'
 import { isModalOpen, closeActivityModal } from '../ui/uiOverlay.js'
-import { initMobileControls, mobileInput, isMobileDevice, destroyMobileControls } from '../ui/mobileControls.js'
+import { initMobileControls, mobileInput, isMobileDevice, destroyMobileControls, resetMobileState } from '../ui/mobileControls.js'
 
 export function startYourEngines({
   canvas,
@@ -225,6 +225,7 @@ export function startYourEngines({
     pickableMeshes = Array.isArray(currentRoom.pickableMeshes) ? currentRoom.pickableMeshes : []
 
     applySpawn(spawn)
+    try { resetMobileState() } catch (e) {}
   }
 
   loadRoom({ mode: roomMode, spawn: roomSpawn, dayName: null })
