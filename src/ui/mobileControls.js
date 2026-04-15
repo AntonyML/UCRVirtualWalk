@@ -73,7 +73,9 @@ function _setThumbPosition(nx, nz) {
   const baseRect = _base.getBoundingClientRect()
   const maxRadius = Math.max(16, (baseRect.width / 2) - (_thumbSize / 2))
   const tx = clamp(nx * maxRadius, -maxRadius, maxRadius)
-  const ty = clamp(-nz * maxRadius, -maxRadius, maxRadius)
+  // `nz` is passed as the screen-space Y normalized (positive = down).
+  // For CSS translate, positive Y moves down, so use `nz` directly.
+  const ty = clamp(nz * maxRadius, -maxRadius, maxRadius)
   _thumb.style.transform = `translate(${Math.round(tx)}px, ${Math.round(ty)}px)`
 }
 
@@ -422,6 +424,30 @@ export function resetMobileState() {
 
     _joystickId = null
     _lookId = null
+
+    // clear any stored last positions for look area
+    try {
+      if (_touchArea) {
+        _touchArea._lastX = null
+        _touchArea._lastY = null
+      }
+    } catch (e) {}
+
+    // try to release pointer capture on canvas elements as a best-effort fallback
+    try {
+      const canvases = document.querySelectorAll && document.querySelectorAll('canvas')
+      if (canvases && canvases.length) {
+        for (let i = 0; i < canvases.length; i++) {
+          const cv = canvases[i]
+          try {
+            if (jid !== null && typeof cv.releasePointerCapture === 'function') cv.releasePointerCapture(jid)
+          } catch (e) {}
+          try {
+            if (lid !== null && typeof cv.releasePointerCapture === 'function') cv.releasePointerCapture(lid)
+          } catch (e) {}
+        }
+      }
+    } catch (e) {}
 
     // try to release pointer capture (best-effort)
     try {
