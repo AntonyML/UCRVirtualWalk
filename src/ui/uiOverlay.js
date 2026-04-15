@@ -4,6 +4,7 @@
  */
 
 import { replaceEmojisAndArrowsToHtml, getIconUrl, ARROW_ICON } from './emojiMap.js'
+import { resetMobileState } from './mobileControls.js'
 
 let _modal = null
 let _onClose = null
@@ -90,6 +91,8 @@ export function showActivityModal(activity) {
     }
   }
 
+  // Reset mobile control state to avoid stuck joystick/pointer-capture issues
+  try { resetMobileState() } catch (e) {}
   _modal.classList.add('visible')
   document.body.classList.add('modal-open')
 }
@@ -98,6 +101,8 @@ export function closeActivityModal() {
   if (!_modal) return
   _modal.classList.remove('visible')
   document.body.classList.remove('modal-open')
+  // Reset mobile state after closing modal as well
+  try { resetMobileState() } catch (e) {}
   if (typeof _onClose === 'function') _onClose()
 }
 
