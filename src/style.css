@@ -111,6 +111,43 @@ canvas:focus {
 	opacity: 0.9;
 }
 
+/* Inline icon/emoji replacement */
+.inline-icon,
+.emoji-icon {
+	width: 18px;
+	height: 18px;
+	display: inline-block;
+	vertical-align: text-bottom;
+	margin: 0 8px 0 6px;
+}
+.emoji-icon {
+	width: 16px;
+	height: 16px;
+}
+.arrow-icon { width: 16px; height: 16px; }
+
+/* Overlay header logo */
+#overlay-titlebar-inner {
+	display: flex;
+	align-items: center;
+	gap: 12px;
+}
+#overlay-logo {
+	width: 44px;
+	height: 44px;
+	object-fit: contain;
+	border-radius: 6px;
+}
+
+/* Modal small logo */
+.modal-logo {
+	width: 20px;
+	height: 20px;
+	object-fit: contain;
+	margin-right: 10px;
+	vertical-align: middle;
+}
+
 /* ===================== EVENT INFO BANNER ===================== */
 #overlay-event-banner {
 	position: fixed;

@@ -11,6 +11,7 @@ app.innerHTML = `
   <div id="overlay" aria-label="Click to start">
     <div id="overlay-titlebar">
       <div id="overlay-titlebar-inner">
+        <img id="overlay-logo" src="https://guapiles.ucr.ac.cr/wp-content/uploads/2024/02/UCR01.png" alt="UCR logo" />
         <p>Semana U 2026 – UCR Guápiles</p>
       </div>
     </div>

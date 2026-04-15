@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { clamp, configureGalleryTexture } from '../../misc/helper.js'
 import { showActivityModal } from '../../ui/uiOverlay.js'
+import { getIconUrl } from '../../ui/emojiMap.js'
 
 /**
  * buildDayRoom – creates a room with activity panels for a given day.
@@ -100,16 +101,34 @@ export function buildDayRoom(ctx, { name: dayName, eventsData }) {
     canv2.width = 512
     canv2.height = 256
     const c2 = canv2.getContext('2d')
+    const lTex = new THREE.CanvasTexture(canv2)
+    lTex.colorSpace = THREE.SRGBColorSpace
     if (c2) {
       c2.clearRect(0, 0, canv2.width, canv2.height)
       c2.textAlign = 'center'
       c2.textBaseline = 'middle'
       c2.fillStyle = 'rgba(255,255,255,0.92)'
       c2.font = '800 80px system-ui, -apple-system, Segoe UI, Roboto, Arial'
-      c2.fillText('← Lobby', canv2.width / 2, canv2.height / 2)
+      const text = 'Lobby'
+      const iconSize = 56
+      // Compute centered layout reserving space for icon
+      const textWidth = c2.measureText(text).width
+      const totalW = iconSize + 8 + textWidth
+      const startX = canv2.width / 2 - totalW / 2
+      const textX = startX + iconSize + 8 + textWidth / 2 - textWidth / 2
+      c2.fillText(text, canv2.width / 2 + iconSize / 2, canv2.height / 2)
+
+      // Load left arrow icon and draw when ready
+      const arrowImg = new Image()
+      arrowImg.decoding = 'async'
+      arrowImg.onload = () => {
+        const iconX = startX
+        const iconY = canv2.height / 2 - iconSize / 2
+        try { c2.drawImage(arrowImg, iconX, iconY, iconSize, iconSize) } catch (e) {}
+        lTex.needsUpdate = true
+      }
+      arrowImg.src = getIconUrl('arrow-left.svg')
     }
-    const lTex = new THREE.CanvasTexture(canv2)
-    lTex.colorSpace = THREE.SRGBColorSpace
     lTex.needsUpdate = true
     const lGeo = new THREE.PlaneGeometry(btnW * 0.9, btnH * 0.7)
     const lMat = new THREE.MeshBasicMaterial({ map: lTex, transparent: true })
@@ -368,13 +387,43 @@ function makeActivityTexture({ title, size = 512 }) {
     c.font = '600 34px system-ui, -apple-system, Segoe UI, Roboto, Arial'
     c.fillStyle = 'rgba(120,200,255,0.85)'
     c.textBaseline = 'bottom'
-    c.fillText('👆 Click para ver', size / 2, size - 28)
+    const hintText = 'Click para ver'
+    const iconSize = 36
+    const textWidth = c.measureText(hintText).width
+    const totalW = iconSize + 8 + textWidth
+    const startX = size / 2 - totalW / 2
+    const textX = startX + iconSize + 8 + textWidth / 2
+    c.fillText(hintText, textX, size - 28)
   }
 
   const tex = new THREE.CanvasTexture(canv)
   tex.colorSpace = THREE.SRGBColorSpace
   configureGalleryTexture(tex)
   tex.needsUpdate = true
+
+  // Load pointer icon asynchronously and draw into canvas when ready
+  try {
+    const pointerImg = new Image()
+    pointerImg.decoding = 'async'
+    pointerImg.onload = () => {
+      try {
+        const c2 = canv.getContext('2d')
+        if (c2) {
+          const hintText = 'Click para ver'
+          c2.font = '600 34px system-ui, -apple-system, Segoe UI, Roboto, Arial'
+          const iconSize = 36
+          const textWidth = c2.measureText(hintText).width
+          const totalW = iconSize + 8 + textWidth
+          const startX = size / 2 - totalW / 2
+          const iconY = size - 28 - iconSize + 8
+          c2.drawImage(pointerImg, startX, iconY, iconSize, iconSize)
+          tex.needsUpdate = true
+        }
+      } catch (e) {}
+    }
+    pointerImg.src = getIconUrl('pointer.svg')
+  } catch (e) {}
+
   return tex
 }
 

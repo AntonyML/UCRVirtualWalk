@@ -3,13 +3,16 @@
  * Bridge between Three.js raycaster clicks and the HTML UI.
  */
 
+import { replaceEmojisAndArrowsToHtml, getIconUrl, ARROW_ICON } from './emojiMap.js'
+
 let _modal = null
 let _onClose = null
+
+const LOGO_URL = 'https://guapiles.ucr.ac.cr/wp-content/uploads/2024/02/UCR01.png'
 
 export function initActivityModal({ onClose } = {}) {
   _onClose = onClose
 
-  // Inject modal HTML
   const existing = document.getElementById('activity-modal')
   if (existing) {
     _modal = existing
@@ -27,10 +30,11 @@ export function initActivityModal({ onClose } = {}) {
     <div id="activity-modal-panel">
       <button id="activity-modal-close" aria-label="Cerrar">&times;</button>
       <div id="activity-modal-header">
+        <img id="modal-logo" src="${LOGO_URL}" alt="UCR logo" class="modal-logo" />
         <h2 id="activity-modal-title"></h2>
       </div>
       <div id="activity-modal-body">
-        <pre id="activity-modal-text"></pre>
+        <div id="activity-modal-text"></div>
       </div>
       <div id="activity-modal-footer">
         <a
@@ -39,7 +43,7 @@ export function initActivityModal({ onClose } = {}) {
           target="_blank"
           rel="noopener noreferrer"
           style="display:none"
-        >IR AL FORMULARIO ↗</a>
+        >IR AL FORMULARIO <img class="inline-icon arrow-icon" src="${getIconUrl(ARROW_ICON)}" alt="->" /></a>
       </div>
     </div>
   `
@@ -72,8 +76,8 @@ export function showActivityModal(activity) {
   const textEl = document.getElementById('activity-modal-text')
   const linkEl = document.getElementById('activity-modal-link')
 
-  if (titleEl) titleEl.textContent = activity.title || ''
-  if (textEl) textEl.textContent = activity.full_text || ''
+  if (titleEl) titleEl.innerHTML = replaceEmojisAndArrowsToHtml(activity.title || '')
+  if (textEl) textEl.innerHTML = replaceEmojisAndArrowsToHtml(activity.full_text || '')
 
   const hasLink = typeof activity.link === 'string' && activity.link.trim().length > 0
   if (linkEl) {

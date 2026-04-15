@@ -74,6 +74,9 @@ export function buildLobbyRoom(ctx, lobby) {
         ctx2.restore()
       }
 
+      let arrowLeftImg = null
+      let arrowRightImg = null
+
       function drawList(x0, title, items, { align = 'left' } = {}) {
         ctx2.textAlign = align
         ctx2.textBaseline = 'alphabetic'
@@ -96,7 +99,22 @@ export function buildLobbyRoom(ctx, lobby) {
         let y = yTop + headerLineH
         ctx2.font = headerFont
         ctx2.fillStyle = 'rgba(0,0,0,0.92)'
-        ctx2.fillText(String(title), x0, y)
+
+        // Draw icon for arrow-based titles, otherwise draw text
+        if (typeof title === 'string' && title.includes('←') && arrowLeftImg && arrowLeftImg.naturalWidth) {
+          const iconSize = 48
+          const iconX = align === 'left' ? x0 - iconSize - 12 : x0 + 12
+          const iconY = y - headerLineH / 2 - iconSize / 2 + 8
+          try { ctx2.drawImage(arrowLeftImg, iconX, iconY, iconSize, iconSize) } catch (e) {}
+        } else if (typeof title === 'string' && title.includes('→') && arrowRightImg && arrowRightImg.naturalWidth) {
+          const iconSize = 48
+          const iconX = align === 'left' ? x0 - iconSize - 12 : x0 + 12
+          const iconY = y - headerLineH / 2 - iconSize / 2 + 8
+          try { ctx2.drawImage(arrowRightImg, iconX, iconY, iconSize, iconSize) } catch (e) {}
+        } else {
+          ctx2.fillText(String(title), x0, y)
+        }
+
         y += headerGap
         ctx2.font = itemFont
         ctx2.fillStyle = 'rgba(0,0,0,0.92)'
@@ -150,6 +168,17 @@ export function buildLobbyRoom(ctx, lobby) {
         tex.needsUpdate = true
       }
       watermarkImg.src = iconUrl
+      // Preload arrow icons for header decorations
+      const baseForIcons = import.meta.env.BASE_URL || '/'
+      arrowLeftImg = new Image()
+      arrowLeftImg.decoding = 'async'
+      arrowLeftImg.onload = () => { renderBoard({ watermarkImg }); tex.needsUpdate = true }
+      arrowLeftImg.src = `${baseForIcons}icons/arrow-left.svg`
+
+      arrowRightImg = new Image()
+      arrowRightImg.decoding = 'async'
+      arrowRightImg.onload = () => { renderBoard({ watermarkImg }); tex.needsUpdate = true }
+      arrowRightImg.src = `${baseForIcons}icons/arrow-right.svg`
     }
 
     const boardDepth = 0.08
