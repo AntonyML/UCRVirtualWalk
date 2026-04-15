@@ -157,7 +157,7 @@ export function buildLobbyRoom(ctx, lobby) {
 
       renderBoard()
 
-      const baseUrl = import.meta.env.BASE_URL || '/'
+      const baseUrl = import.meta.env.BASE_URL || './'
       const fallbackIconUrl = baseUrl.endsWith('/') ? `${baseUrl}icon.png` : `${baseUrl}/icon.png`
       const iconUrl = document.querySelector('link[rel~="icon"]')?.href || fallbackIconUrl
 
@@ -169,7 +169,7 @@ export function buildLobbyRoom(ctx, lobby) {
       }
       watermarkImg.src = iconUrl
       // Preload arrow icons for header decorations
-      const baseForIcons = import.meta.env.BASE_URL || '/'
+      const baseForIcons = import.meta.env.BASE_URL || './'
       arrowLeftImg = new Image()
       arrowLeftImg.decoding = 'async'
       arrowLeftImg.onload = () => { renderBoard({ watermarkImg }); tex.needsUpdate = true }

@@ -8,7 +8,7 @@ let _eventsData = null
 export async function loadEventsData() {
   if (_eventsData) return _eventsData
 
-  const base = import.meta.env.BASE_URL || '/'
+  const base = import.meta.env.BASE_URL || './'
   const url = base.endsWith('/') ? `${base}data/events.json` : `${base}/data/events.json`
 
   const res = await fetch(url)

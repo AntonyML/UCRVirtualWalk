@@ -29,7 +29,7 @@ export const ARROW_ICON = 'arrow-right.svg'
 export const ARROW_LEFT_ICON = 'arrow-left.svg'
 
 export function getIconUrl(fileName) {
-  const base = import.meta.env.BASE_URL || '/'
+  const base = import.meta.env.BASE_URL || './'
   return `${base}icons/${fileName}`
 }
 

@@ -1,9 +1,10 @@
 import { defineConfig } from 'vite'
 
 export default defineConfig({
-	base: '/linkwalk/',
+	plugins: [],
+	base: './',
 	build: {
-		minify: 'esbuild',
-		chunkSizeWarningLimit: 1200,
+		outDir: 'dist',
+		emptyOutDir: true,
 	},
 })
